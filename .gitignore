@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+.next/
+dist/
+build/
+
+# Secrets
+config.js
+.env
+
+# University Junk
+*.rar
+*.zip
+.DS_Store
