@@ -45,7 +45,7 @@ export default function NetworkGraph({
             const s = link.source;
             const t = link.target;
 
-            // Use guard to check if source/target have become objects
+            // Use guard to check if source/target have become objects otherwise use number
             if (typeof s === "object" && typeof t === "object") {
               return `${s.name} & ${t.name}: ${link.value} interactions`;
             }
@@ -54,7 +54,7 @@ export default function NetworkGraph({
           // Update selected node
           onNodeClick={(node: CharacterNode) => {
             if (node.name === selectedCharacter) {
-              // deselecting if pressing same twice
+              // deselecting if already selected
               onNodeClick(null);
             } else {
               onNodeClick(node.name); // select node if none already selected
@@ -62,7 +62,7 @@ export default function NetworkGraph({
           }}
           // Deselect node if pressing background
           onBackgroundClick={() => onNodeClick(null)}
-          // Highlight node logic
+          // set color
           nodeColor={(node: CharacterNode) => node.color}
           // Size Logic
           nodeVal={(node: CharacterNode) => {

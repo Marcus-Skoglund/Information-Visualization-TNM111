@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Dropdown from "@/components/Dropdown";
 const NetworkGraph = dynamic(() => import("@/components/NetworkGraph"), { ssr: false }); // Load on client side
-import { CharacterNode, InteractionLink, GraphData } from "@/types/starwars"; // import types
+import { CharacterNode, InteractionLink, GraphData, RawGraphData } from "@/types/starwars"; // import types
 import { getMaxConnections, getFilteredGraphData } from "@/utils/graphUtils"; // import weight function
 import Slider from "@/components/Slider";
 
@@ -50,18 +50,19 @@ export default function Home() {
         const data2 = await res2.json();
 
         // react-force-graph needs an ID
-        // The dataset uses zero-based array indices for links, so we map the array index to an 'id'.
-        const formatData = (data: any): GraphData => {
-          const nodes: CharacterNode[] = data.nodes.map((node: any, index: number) => ({
+        // Transform the data from the raw json to a more usable version with ID and Connection count
+        const formatData = (data: RawGraphData): GraphData => {
+          const nodes: CharacterNode[] = data.nodes.map((node, index) => ({
             // take all data, add index, add color (which is colour), add amount of unique connections for each character
             ...node,
             id: index,
             color: node.colour,
             connectionCount: 0,
           }));
-          const links: InteractionLink[] = data.links; // take the identical data
+          const links: InteractionLink[] = data.links.map((link) => ({ ...link })); // take the identical data
+
           // Calculate the number of connections for each node
-          links.forEach((link: InteractionLink) => {
+          links.forEach((link) => {
             // Increment count for the source node
             const sourceNode = nodes[link.source as number];
             if (sourceNode) sourceNode.connectionCount = (sourceNode.connectionCount || 0) + 1;
@@ -84,14 +85,14 @@ export default function Home() {
     loadData();
   }, [selection1, selection2]);
 
-  // DIAGRAM 1 LOGIC
+  // DIAGRAM 1
   const maxConnections1 = useMemo(() => getMaxConnections(diagram1Data), [diagram1Data.nodes]);
   const filteredData1 = useMemo(
     () => getFilteredGraphData(diagram1Data, minLinkStrength1, selectedCharacter),
     [diagram1Data, minLinkStrength1, selectedCharacter],
   );
 
-  // DIAGRAM 2 LOGIC (Exactly the same, just different data/strength variables)
+  // DIAGRAM 2
   const maxConnections2 = useMemo(() => getMaxConnections(diagram2Data), [diagram2Data.nodes]);
   const filteredData2 = useMemo(
     () => getFilteredGraphData(diagram2Data, minLinkStrength2, selectedCharacter),
@@ -108,9 +109,9 @@ export default function Home() {
           Compare Episodes & Network Density
         </h2>
 
-        {/* Using a grid to split the panel into two distinct columns */}
+        {/* Split the panel */}
         <div className="flex flex-col lg:flex-row justify-around items-center gap-8 px-4 w-full">
-          {/* Group 1: Controls for Diagram 1 */}
+          {/* Controls for Diagram 1 */}
           <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:max-w-[25%]">
             <div className="shrink-0 w-full md:w-auto">
               <Dropdown
@@ -144,9 +145,9 @@ export default function Home() {
             <div className="flex-grow w-full">
               <Slider
                 label="Unique interactions:"
-                value={minLinkStrength2} // Ensure you use the second state variable here!
+                value={minLinkStrength2}
                 min={0}
-                max={maxConnections2} // Ensure you use the second max variable here!
+                max={maxConnections2}
                 onChange={setMinLinkStrength2}
               />
             </div>
@@ -187,4 +188,4 @@ export default function Home() {
   );
 }
 
-// Episode 4 has an outlier (no edges)
+// Episode 3 & 4 has an outlier (no edges)

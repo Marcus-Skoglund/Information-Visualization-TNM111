@@ -1,6 +1,7 @@
 // utils/graphUtils.ts
 import { GraphData, CharacterNode } from "@/types/starwars";
 
+// checks if it's an object (character) or still a number, returns number
 const getLinkId = (linkPart: number | CharacterNode): number => {
   if (typeof linkPart === "object") {
     return linkPart.id;
@@ -28,13 +29,13 @@ export const getFilteredGraphData = (
   if (selectedChar) {
     const selectedNode = nodes.find((n) => n.name === selectedChar);
 
-    if (selectedNode) {
+    if (selectedNode) { // get all that has selected character in source or target
       const neighborLinks = links.filter((link) => {
         const sId = getLinkId(link.source);
         const tId = getLinkId(link.target);
         return sId === selectedNode.id || tId === selectedNode.id;
       });
-
+      // create set, add all connected to set (O(1) for set)
       const neighborIndices = new Set<number>();
       neighborIndices.add(selectedNode.id);
 
@@ -48,11 +49,11 @@ export const getFilteredGraphData = (
         links: neighborLinks,
       };
     }
-    return { nodes: [], links: [] }; // Fallback if selected char is filtered out
+    return { nodes: [], links: [] }; // Fallback if selected character is filtered out
   }
 
-  // Standard View: Filter links to match nodes
-  const activeIndices = new Set(nodes.map((n) => n.id));
+  // Filter links to match nodes
+  const activeIndices = new Set(nodes.map((n) => n.id)); // list of character that should be visable
   const filteredLinks = links.filter((link) => {
     const sId = getLinkId(link.source);
     const tId = getLinkId(link.target);

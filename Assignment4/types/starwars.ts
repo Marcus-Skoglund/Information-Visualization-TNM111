@@ -1,4 +1,18 @@
 // Types for the Star Wars data and functions
+
+// ------------- the raw data -----------------
+export interface RawCharacterNode {
+  name: string;
+  colour: string;
+  value: number;
+}
+
+export interface RawGraphData {
+  nodes: RawCharacterNode[];
+  links: { source: number; target: number; value: number }[];
+}
+
+//----------------- Updated data -----------------
 export interface CharacterNode {
   id: number;
   name: string;
@@ -18,6 +32,7 @@ export interface GraphData {
   links: InteractionLink[];
 }
 
+// ----------- Functions -------------
 export interface NetworkGraphProps {
   graphData: GraphData;
   selectedCharacter: string | null;
@@ -30,4 +45,16 @@ export interface SliderProps {
   min: number;
   max: number;
   onChange: (value: number) => void;
+}
+
+export interface Option {
+  value: string;
+  label: string;
+}
+
+export interface DropdownProps {
+  label: string;
+  value: string;
+  options: Option[];
+  onChange: (newValue: string) => void;
 }

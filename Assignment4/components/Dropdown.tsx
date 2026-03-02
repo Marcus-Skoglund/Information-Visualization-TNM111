@@ -1,17 +1,4 @@
-import React from "react";
-
-// Define props
-interface Option {
-  value: string;
-  label: string;
-}
-
-interface DropdownProps {
-  label: string;
-  value: string;
-  options: Option[];
-  onChange: (newValue: string) => void;
-}
+import { DropdownProps } from "@/types/starwars"; // import types
 
 // Dropdown meny
 export default function Dropdown({ label, value, options, onChange }: DropdownProps) {
