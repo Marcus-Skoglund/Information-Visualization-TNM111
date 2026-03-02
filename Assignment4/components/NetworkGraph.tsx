@@ -1,12 +1,6 @@
-import React, { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import ForceGraph2D from "react-force-graph-2d"; // https://vasturiano.github.io/react-force-graph/
-import { CharacterNode, InteractionLink, GraphData } from "@/types/starwars"; // import types
-
-interface NetworkGraphProps {
-  graphData: GraphData;
-  selectedCharacter: string | null;
-  onNodeClick: (characterName: string | null) => void;
-}
+import { CharacterNode, InteractionLink, NetworkGraphProps } from "@/types/starwars"; // import types
 
 export default function NetworkGraph({
   graphData,
@@ -69,10 +63,7 @@ export default function NetworkGraph({
           // Deselect node if pressing background
           onBackgroundClick={() => onNodeClick(null)}
           // Highlight node logic
-          nodeColor={(node: CharacterNode) => {
-            if (!selectedCharacter) return node.color; // Nobody selected
-            return node.name === selectedCharacter ? node.color : "#e2e8f0"; // Highlight vs Gray
-          }}
+          nodeColor={(node: CharacterNode) => node.color}
           // Size Logic
           nodeVal={(node: CharacterNode) => {
             // base size

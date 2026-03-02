@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Dropdown from "@/components/Dropdown";
 const NetworkGraph = dynamic(() => import("@/components/NetworkGraph"), { ssr: false }); // Load on client side
 import { CharacterNode, InteractionLink, GraphData } from "@/types/starwars"; // import types
+import { getMaxConnections, getFilteredGraphData } from "@/utils/graphUtils"; // import weight function
 import Slider from "@/components/Slider";
 
 // Dropdown options
@@ -31,12 +32,11 @@ const getFilePath = (selection: string) => {
 export default function Home() {
   const [diagram1Data, setDiagram1Data] = useState<GraphData>({ nodes: [], links: [] });
   const [diagram2Data, setDiagram2Data] = useState<GraphData>({ nodes: [], links: [] });
-  // "full" means all episodes, "1" means Episode 1, etc
+  // "full" means all episodes
   const [selection1, setSelection1] = useState<string>("1"); // Default Episode 1
   const [selection2, setSelection2] = useState<string>("full"); // Default All Episodes
-  // Selected character, starts with nobody selected.
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
-  const [minLinkStrength, setMinLinkStrength] = useState<number>(0);
+  const [minLinkStrength1, setMinLinkStrength] = useState<number>(0);
   const [minLinkStrength2, setMinLinkStrength2] = useState<number>(0);
 
   // Fetch data when the component loads
@@ -49,7 +49,7 @@ export default function Home() {
         const res2 = await fetch(getFilePath(selection2));
         const data2 = await res2.json();
 
-        // react-force-graph needs an 'id' property on nodes.
+        // react-force-graph needs an ID
         // The dataset uses zero-based array indices for links, so we map the array index to an 'id'.
         const formatData = (data: any): GraphData => {
           const nodes: CharacterNode[] = data.nodes.map((node: any, index: number) => ({
@@ -84,55 +84,19 @@ export default function Home() {
     loadData();
   }, [selection1, selection2]);
 
-  // Find the highest connectionCount in the current node list
-  const maxConnections = useMemo(() => {
-    if (diagram1Data.nodes.length === 0) return 10;
-    return Math.max(...diagram1Data.nodes.map((n) => n.connectionCount || 0));
-  }, [diagram1Data.nodes]);
+  // DIAGRAM 1 LOGIC
+  const maxConnections1 = useMemo(() => getMaxConnections(diagram1Data), [diagram1Data.nodes]);
+  const filteredData1 = useMemo(
+    () => getFilteredGraphData(diagram1Data, minLinkStrength1, selectedCharacter),
+    [diagram1Data, minLinkStrength1, selectedCharacter],
+  );
 
-  const filteredData1 = useMemo(() => {
-    // 1. Filter Nodes based on the number of lines (connections)
-    const filteredNodes = diagram1Data.nodes.filter(
-      (node) => node.connectionCount >= minLinkStrength,
-    );
-
-    const activeNodeIds = new Set(filteredNodes.map((n) => n.id));
-
-    // 2. Filter Links to only show lines where BOTH characters passed the filter
-    const filteredLinks = diagram1Data.links.filter((link) => {
-      const sId = typeof link.source === "object" ? link.source.id : link.source;
-      const tId = typeof link.target === "object" ? link.target.id : link.target;
-      return activeNodeIds.has(sId as number) && activeNodeIds.has(tId as number);
-    });
-
-    return { nodes: filteredNodes, links: filteredLinks };
-  }, [diagram1Data, minLinkStrength]);
-
-  // --------------- Second diagram ------------------
-
-  // Find the highest connectionCount in the current node list
-  const maxConnections2 = useMemo(() => {
-    if (diagram2Data.nodes.length === 0) return 10;
-    return Math.max(...diagram2Data.nodes.map((n) => n.connectionCount || 0));
-  }, [diagram2Data.nodes]);
-
-  const filteredData2 = useMemo(() => {
-    // 1. Filter Nodes based on the number of lines (connections)
-    const filteredNodes = diagram2Data.nodes.filter(
-      (node) => node.connectionCount >= minLinkStrength2,
-    );
-
-    const activeNodeIds = new Set(filteredNodes.map((n) => n.id));
-
-    // 2. Filter Links to only show lines where BOTH characters passed the filter
-    const filteredLinks = diagram2Data.links.filter((link) => {
-      const sId = typeof link.source === "object" ? link.source.id : link.source;
-      const tId = typeof link.target === "object" ? link.target.id : link.target;
-      return activeNodeIds.has(sId as number) && activeNodeIds.has(tId as number);
-    });
-
-    return { nodes: filteredNodes, links: filteredLinks };
-  }, [diagram2Data, minLinkStrength2]);
+  // DIAGRAM 2 LOGIC (Exactly the same, just different data/strength variables)
+  const maxConnections2 = useMemo(() => getMaxConnections(diagram2Data), [diagram2Data.nodes]);
+  const filteredData2 = useMemo(
+    () => getFilteredGraphData(diagram2Data, minLinkStrength2, selectedCharacter),
+    [diagram2Data, minLinkStrength2, selectedCharacter],
+  );
 
   return (
     <main className="min-h-screen p-8 bg-slate-50 text-slate-900">
@@ -145,9 +109,9 @@ export default function Home() {
         </h2>
 
         {/* Using a grid to split the panel into two distinct columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 px-4">
+        <div className="flex flex-col lg:flex-row justify-around items-center gap-8 px-4 w-full">
           {/* Group 1: Controls for Diagram 1 */}
-          <div className="flex flex-col md:flex-row items-center gap-8 w-full">
+          <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:max-w-[25%]">
             <div className="shrink-0 w-full md:w-auto">
               <Dropdown
                 label="Diagram 1 Data:"
@@ -158,17 +122,17 @@ export default function Home() {
             </div>
             <div className="flex-grow w-full">
               <Slider
-                label="Filter Connections"
-                value={minLinkStrength}
+                label="Unique interactions:"
+                value={minLinkStrength1}
                 min={0}
-                max={maxConnections}
+                max={maxConnections1}
                 onChange={setMinLinkStrength}
               />
             </div>
           </div>
 
-          {/* Group 2: Controls for Diagram 2 */}
-          <div className="flex flex-col md:flex-row items-center gap-8 w-full">
+          {/* Controls for Diagram 2 */}
+          <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:max-w-[25%]">
             <div className="shrink-0 w-full md:w-auto">
               <Dropdown
                 label="Diagram 2 Data:"
@@ -179,7 +143,7 @@ export default function Home() {
             </div>
             <div className="flex-grow w-full">
               <Slider
-                label="Filter Connections"
+                label="Unique interactions:"
                 value={minLinkStrength2} // Ensure you use the second state variable here!
                 min={0}
                 max={maxConnections2} // Ensure you use the second max variable here!
