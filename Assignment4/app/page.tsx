@@ -1,28 +1,11 @@
 "use client"; // Run entirely in the browser
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Dropdown from "@/components/Dropdown";
 const NetworkGraph = dynamic(() => import("@/components/NetworkGraph"), { ssr: false }); // Load on client side
-
-// Types for the Star Wars data
-interface CharacterNode {
-  id: number;
-  name: string;
-  value: number;
-  color: string;
-}
-
-interface InteractionLink {
-  source: number;
-  target: number;
-  value: number;
-}
-
-interface GraphData {
-  nodes: CharacterNode[];
-  links: InteractionLink[];
-}
+import { CharacterNode, InteractionLink, GraphData } from "@/types/starwars"; // import types
+import Slider from "@/components/Slider";
 
 // Dropdown options
 const dropdownOptions = [
@@ -53,6 +36,8 @@ export default function Home() {
   const [selection2, setSelection2] = useState<string>("full"); // Default All Episodes
   // Selected character, starts with nobody selected.
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
+  const [minLinkStrength, setMinLinkStrength] = useState<number>(0);
+  const [minLinkStrength2, setMinLinkStrength2] = useState<number>(0);
 
   // Fetch data when the component loads
   useEffect(() => {
@@ -66,15 +51,28 @@ export default function Home() {
 
         // react-force-graph needs an 'id' property on nodes.
         // The dataset uses zero-based array indices for links, so we map the array index to an 'id'.
-        const formatData = (data: any): GraphData => ({
-          nodes: data.nodes.map((node: any, index: number) => ({
-            // take all data, add index, add color (which is colour)
+        const formatData = (data: any): GraphData => {
+          const nodes: CharacterNode[] = data.nodes.map((node: any, index: number) => ({
+            // take all data, add index, add color (which is colour), add amount of unique connections for each character
             ...node,
             id: index,
             color: node.colour,
-          })),
-          links: data.links, // take the identical data
-        });
+            connectionCount: 0,
+          }));
+          const links: InteractionLink[] = data.links; // take the identical data
+          // Calculate the number of connections for each node
+          links.forEach((link: InteractionLink) => {
+            // Increment count for the source node
+            const sourceNode = nodes[link.source as number];
+            if (sourceNode) sourceNode.connectionCount = (sourceNode.connectionCount || 0) + 1;
+
+            // Increment count for the target node
+            const targetNode = nodes[link.target as number];
+            if (targetNode) targetNode.connectionCount = (targetNode.connectionCount || 0) + 1;
+          });
+
+          return { nodes, links };
+        };
 
         setDiagram1Data(formatData(data1));
         setDiagram2Data(formatData(data2));
@@ -86,38 +84,120 @@ export default function Home() {
     loadData();
   }, [selection1, selection2]);
 
+  // Find the highest connectionCount in the current node list
+  const maxConnections = useMemo(() => {
+    if (diagram1Data.nodes.length === 0) return 10;
+    return Math.max(...diagram1Data.nodes.map((n) => n.connectionCount || 0));
+  }, [diagram1Data.nodes]);
+
+  const filteredData1 = useMemo(() => {
+    // 1. Filter Nodes based on the number of lines (connections)
+    const filteredNodes = diagram1Data.nodes.filter(
+      (node) => node.connectionCount >= minLinkStrength,
+    );
+
+    const activeNodeIds = new Set(filteredNodes.map((n) => n.id));
+
+    // 2. Filter Links to only show lines where BOTH characters passed the filter
+    const filteredLinks = diagram1Data.links.filter((link) => {
+      const sId = typeof link.source === "object" ? link.source.id : link.source;
+      const tId = typeof link.target === "object" ? link.target.id : link.target;
+      return activeNodeIds.has(sId as number) && activeNodeIds.has(tId as number);
+    });
+
+    return { nodes: filteredNodes, links: filteredLinks };
+  }, [diagram1Data, minLinkStrength]);
+
+  // --------------- Second diagram ------------------
+
+  // Find the highest connectionCount in the current node list
+  const maxConnections2 = useMemo(() => {
+    if (diagram2Data.nodes.length === 0) return 10;
+    return Math.max(...diagram2Data.nodes.map((n) => n.connectionCount || 0));
+  }, [diagram2Data.nodes]);
+
+  const filteredData2 = useMemo(() => {
+    // 1. Filter Nodes based on the number of lines (connections)
+    const filteredNodes = diagram2Data.nodes.filter(
+      (node) => node.connectionCount >= minLinkStrength2,
+    );
+
+    const activeNodeIds = new Set(filteredNodes.map((n) => n.id));
+
+    // 2. Filter Links to only show lines where BOTH characters passed the filter
+    const filteredLinks = diagram2Data.links.filter((link) => {
+      const sId = typeof link.source === "object" ? link.source.id : link.source;
+      const tId = typeof link.target === "object" ? link.target.id : link.target;
+      return activeNodeIds.has(sId as number) && activeNodeIds.has(tId as number);
+    });
+
+    return { nodes: filteredNodes, links: filteredLinks };
+  }, [diagram2Data, minLinkStrength2]);
+
   return (
     <main className="min-h-screen p-8 bg-slate-50 text-slate-900">
       <h1 className="text-3xl font-bold text-center mb-8">Star Wars Character Interactions</h1>
 
       {/* Control Panel Area */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8 border border-slate-200">
-        <h2 className="text-xl font-semibold mb-2">Select which episodes to compare</h2>
-        <div className="flex justify-center space-x-100">
-          <Dropdown
-            label="Diagram 1 Data:"
-            value={selection1}
-            options={dropdownOptions}
-            onChange={setSelection1}
-          />
-          <Dropdown
-            label="Diagram 2 Data:"
-            value={selection2}
-            options={dropdownOptions}
-            onChange={setSelection2}
-          />
+        <h2 className="text-xl font-semibold mb-6 text-center border-b pb-4 border-slate-100">
+          Compare Episodes & Network Density
+        </h2>
+
+        {/* Using a grid to split the panel into two distinct columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 px-4">
+          {/* Group 1: Controls for Diagram 1 */}
+          <div className="flex flex-col md:flex-row items-center gap-8 w-full">
+            <div className="shrink-0 w-full md:w-auto">
+              <Dropdown
+                label="Diagram 1 Data:"
+                value={selection1}
+                options={dropdownOptions}
+                onChange={setSelection1}
+              />
+            </div>
+            <div className="flex-grow w-full">
+              <Slider
+                label="Filter Connections"
+                value={minLinkStrength}
+                min={0}
+                max={maxConnections}
+                onChange={setMinLinkStrength}
+              />
+            </div>
+          </div>
+
+          {/* Group 2: Controls for Diagram 2 */}
+          <div className="flex flex-col md:flex-row items-center gap-8 w-full">
+            <div className="shrink-0 w-full md:w-auto">
+              <Dropdown
+                label="Diagram 2 Data:"
+                value={selection2}
+                options={dropdownOptions}
+                onChange={setSelection2}
+              />
+            </div>
+            <div className="flex-grow w-full">
+              <Slider
+                label="Filter Connections"
+                value={minLinkStrength2} // Ensure you use the second state variable here!
+                min={0}
+                max={maxConnections2} // Ensure you use the second max variable here!
+                onChange={setMinLinkStrength2}
+              />
+            </div>
+          </div>
         </div>
       </div>
-
       {/* Network Diagrams Container */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Diagram 1 */}
         <div className="bg-white p-4 rounded-lg shadow-md border border-slate-200">
           <h3 className="text-lg font-semibold mb-4 text-center">Episode {selection1}</h3>
-          <div className="h-[500px] w-full border border-slate-100 bg-slate-50 overflow-hidden">
+          <div className="h-[60vh] w-full border border-slate-100 bg-slate-50 overflow-hidden">
             {diagram1Data.nodes.length > 0 && (
               <NetworkGraph
-                graphData={diagram1Data}
+                graphData={filteredData1}
                 selectedCharacter={selectedCharacter}
                 onNodeClick={setSelectedCharacter}
               />
@@ -128,10 +208,10 @@ export default function Home() {
         {/* Diagram 2 */}
         <div className="bg-white p-4 rounded-lg shadow-md border border-slate-200">
           <h3 className="text-lg font-semibold mb-4 text-center">Episode {selection2}</h3>
-          <div className="h-[500px] w-full border border-slate-100 bg-slate-50 overflow-hidden">
+          <div className="h-[60vh] w-full border border-slate-100 bg-slate-50 overflow-hidden">
             {diagram2Data.nodes.length > 0 && (
               <NetworkGraph
-                graphData={diagram2Data}
+                graphData={filteredData2}
                 selectedCharacter={selectedCharacter}
                 onNodeClick={setSelectedCharacter}
               />
