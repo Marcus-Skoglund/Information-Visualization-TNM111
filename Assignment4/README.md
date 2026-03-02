@@ -27,3 +27,7 @@
    ```bash
    npm install
    ```
+3. **Start Server:** Run the following command to start the app:
+   ```bash
+   npm run dev
+   ```
